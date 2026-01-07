@@ -6,9 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "init-db": "ts-node --project tsconfig.scripts.json src/DataBase/init-database.ts",
+    "create-db": "ts-node --project tsconfig.scripts.json src/DataBase/create-database.ts",
+    "seed-db": "ts-node --project tsconfig.scripts.json src/DataBase/mongodb.seed.ts",
+    "test-db": "ts-node --project tsconfig.scripts.json src/DataBase/test-connection.ts",
+    "debug-db": "ts-node --project tsconfig.scripts.json src/DataBase/debug-connection.ts",
+    "fix-handshake": "ts-node --project tsconfig.scripts.json src/DataBase/fix-handshake.ts",
+    "test-cloudinary": "ts-node --project tsconfig.scripts.json src/Service/test-cloudinary.ts"
   },
   "dependencies": {
+    "@types/mssql": "^9.1.8",
+    "cloudinary": "^2.8.0",
+    "dotenv": "^17.2.3",
+    "mongodb": "^7.0.0",
+    "mssql": "^12.2.0",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
@@ -19,6 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
