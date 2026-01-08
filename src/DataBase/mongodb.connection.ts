@@ -5,13 +5,45 @@ let client: MongoClient | null = null;
 let db: Db | null = null;
 
 /**
+ * Kiểm tra nếu client vẫn connected
+ */
+function isClientConnected(): boolean {
+  // Đơn giản: chỉ check xem client có tồn tại không
+  // Lỗi kết nối sẽ được xử lý khi thực hiện query
+  return client !== null;
+}
+
+/**
+ * Reset connection (dùng khi detect topology closed)
+ */
+async function resetConnection(): Promise<void> {
+  try {
+    if (client) {
+      await client.close().catch(() => {});
+      client = null;
+      db = null;
+    }
+  } catch {
+    client = null;
+    db = null;
+  }
+}
+
+/**
  * Kết nối tới MongoDB
  * @returns Promise<Db>
  */
 export async function connect(): Promise<Db> {
   try {
-    if (db) {
+    // Nếu đã có connection và còn active, return luôn
+    if (db && isClientConnected()) {
       return db;
+    }
+
+    // Nếu connection bị closed, reset
+    if (db && !isClientConnected()) {
+      console.warn('⚠️  MongoDB topology closed, reconnecting...');
+      await resetConnection();
     }
 
     if (!client) {
@@ -28,13 +60,16 @@ export async function connect(): Promise<Db> {
       // Tăng timeout và thêm retry options cho handshake
       const clientOptions = {
         ...mongodbConfig.options,
-        serverSelectionTimeoutMS: 10000, // Tăng timeout lên 10 giây
-        connectTimeoutMS: 10000,
+        serverSelectionTimeoutMS: 15000, // Tăng timeout lên 15 giây (Vercel serverless needs more time)
+        connectTimeoutMS: 15000,
+        socketTimeoutMS: 60000,
         retryWrites: true,
         retryReads: true,
         // Xử lý lỗi handshake tốt hơn
-        maxPoolSize: mongodbConfig.options?.maxPoolSize || 10,
-        minPoolSize: mongodbConfig.options?.minPoolSize || 5,
+        maxPoolSize: mongodbConfig.options?.maxPoolSize || 5,
+        minPoolSize: mongodbConfig.options?.minPoolSize || 1,
+        // Giữ connection alive lâu hơn trên Vercel
+        maxIdleTimeMS: 60000,
       };
       
       client = new MongoClient(mongodbConfig.uri, clientOptions);
@@ -133,15 +168,28 @@ export async function close(): Promise<void> {
 }
 
 /**
- * Lấy collection từ database
+ * Lấy collection từ database (với automatic reconnect nếu topology closed)
  * @param collectionName - Tên collection
  * @returns Promise<Collection>
  */
 export async function getCollection<T extends Document = Document>(
   collectionName: string
 ): Promise<Collection<T>> {
-  const database = await connect();
-  return database.collection<T>(collectionName);
+  try {
+    const database = await connect();
+    return database.collection<T>(collectionName);
+  } catch (error: any) {
+    // Nếu gặp lỗi "Topology is closed", reset và thử lại
+    if (error.message?.includes('Topology is closed') || 
+        error.message?.includes('connection closed') ||
+        error.message?.includes('ECONNREFUSED')) {
+      console.warn('⚠️  Connection lost, attempting to reconnect...');
+      await resetConnection();
+      const database = await connect();
+      return database.collection<T>(collectionName);
+    }
+    throw error;
+  }
 }
 
 /**
