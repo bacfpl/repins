@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllCategories } from '@/Service/AdminService';
+import { withRetry } from '@/DataBase/mongodb.connection';
 
 // GET - Lấy tất cả danh mục (public API)
 export async function GET(request: NextRequest) {
   try {
-    const categories = await getAllCategories();
+    const categories = await withRetry(() => getAllCategories());
     return NextResponse.json({ success: true, data: categories });
   } catch (error: any) {
     console.error('❌ Lỗi khi lấy danh mục:', error);

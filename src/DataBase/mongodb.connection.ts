@@ -227,6 +227,44 @@ export async function createIndex(
   }
 }
 
+/**
+ * Execute database operation with automatic retry on topology errors
+ * This wrapper catches topology errors that happen during query execution
+ * @param operation - Async function that performs the DB operation
+ * @param retries - Number of retries (default: 3)
+ */
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  retries: number = 3
+): Promise<T> {
+  let lastError: any;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const isTopologyError = 
+        error.name === 'MongoTopologyClosedError' ||
+        error.message?.includes('Topology is closed') ||
+        error.message?.includes('connection closed') ||
+        error.message?.includes('ECONNREFUSED') ||
+        error.message?.includes('topology');
+
+      if (isTopologyError && i < retries - 1) {
+        console.warn(`⚠️  Topology error detected, retrying... (attempt ${i + 1}/${retries})`);
+        await resetConnection(); // Reset connection
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
 // Export default connection
-export default { connect, close, getCollection, testConnection, createIndex };
+export default { connect, close, getCollection, testConnection, createIndex, withRetry };
 
