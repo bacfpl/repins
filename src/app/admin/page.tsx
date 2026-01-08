@@ -368,11 +368,11 @@ function ProductsTab({ products, categories, brands, onReload, onDelete }: any) 
       stock: product.stock,
       isActive: product.isActive,
       isFeatured: product.isFeatured,
-      image: product.image || '',
-      images: product.images || [],
+      image: (product as any).image || '',
+      images: (product as any).images || [],
     });
-    setUploadedImages(product.images || [product.image || '']);
-    setPrimaryImageUrl(product.image || (product.images && product.images[0]) || null);
+    setUploadedImages((product as any).images || [(product as any).image || '']);
+    setPrimaryImageUrl((product as any).image || ((product as any).images && (product as any).images[0]) || null);
     setImagesToDelete([]); // Reset images to delete
     setShowForm(true);
   };
@@ -436,13 +436,14 @@ function ProductsTab({ products, categories, brands, onReload, onDelete }: any) 
                   <input
                     type="number"
                     required
-                    value={formData.priceValue}
+                    value={isNaN(formData.priceValue) ? 0 : formData.priceValue}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value);
+                      const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                      const numValue = isNaN(value) ? 0 : value;
                       setFormData({
                         ...formData,
-                        priceValue: value,
-                        price: `${(value / 1000).toFixed(0)}.000₫`,
+                        priceValue: numValue,
+                        price: `${(numValue / 1000).toFixed(0)}.000₫`,
                       });
                     }}
                   />
@@ -580,8 +581,12 @@ function ProductsTab({ products, categories, brands, onReload, onDelete }: any) 
                   <label>Tồn kho</label>
                   <input
                     type="number"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
+                    value={isNaN(formData.stock) ? 0 : formData.stock}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+                      const numValue = isNaN(value) ? 0 : value;
+                      setFormData({ ...formData, stock: numValue });
+                    }}
                   />
                 </div>
                 <div className={styles.formGroup}>

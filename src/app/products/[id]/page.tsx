@@ -135,11 +135,11 @@ export default function ProductDetailPage() {
             <div className={styles.priceSection}>
               <p className={styles.detailPrice}>{product.price}</p>
               <div className={styles.tags}>
-                {product.vat && (
-                  <span className={styles.vatTag}>{product.vat}</span>
+                {(product as any).vat && (
+                  <span className={styles.vatTag}>{(product as any).vat}</span>
                 )}
-                {product.ship && (
-                  <span className={styles.shipTag}>{product.ship}</span>
+                {(product as any).ship && (
+                  <span className={styles.shipTag}>{(product as any).ship}</span>
                 )}
               </div>
             </div>
@@ -151,11 +151,11 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {product.specifications && product.specifications.length > 0 && (
+            {(product as any).specifications && (product as any).specifications.length > 0 && (
               <div className={styles.specificationsSection}>
                 <h2 className={styles.sectionTitle}>Thông số kỹ thuật</h2>
                 <div className={styles.specsList}>
-                  {product.specifications.map((spec, index) => (
+                  {(product as any).specifications.map((spec: any, index: number) => (
                     <div key={index} className={styles.specItem}>
                       <span className={styles.specLabel}>{spec.label}:</span>
                       <span className={styles.specValue}>{spec.value}</span>

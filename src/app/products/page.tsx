@@ -1,7 +1,7 @@
 'use client';
 
 import styles from "./products.module.css";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -30,7 +30,7 @@ interface Brand {
   name: string;
 }
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const pageSize = 8;
   const searchParams = useSearchParams();
   
@@ -275,5 +275,13 @@ export default function ProductsPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div>Đang tải...</div>}>
+      <ProductsPageContent />
+    </Suspense>
   );
 }

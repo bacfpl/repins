@@ -1,5 +1,6 @@
 import { getCollection } from '@/DataBase/mongodb.connection';
 import { COLLECTIONS, Product, Category, Brand } from '@/DataBase/mongodb.schema';
+import { ObjectId } from 'mongodb';
 import { Product as ProductType } from '@/data/products';
 
 export interface ProductFilter {
@@ -34,9 +35,9 @@ function mapProductToType(product: Product, categoryName?: string, brandName?: s
         a = ((a << 5) - a) + b.charCodeAt(0);
         return a & a;
       }, 0)) % 1000000 : parsed;
-    } else if (product._id instanceof ObjectId) {
+    } else if ((product._id as any) instanceof ObjectId) {
       // Sử dụng timestamp của ObjectId hoặc hash để tạo số
-      id = parseInt(product._id.toString().slice(-8), 16) || 0;
+      id = parseInt(String(product._id).slice(-8), 16) || 0;
     } else {
       // Nếu là object có toString
       id = parseInt(String(product._id).slice(-8), 16) || 0;
@@ -96,10 +97,10 @@ export async function getProductsByPage(
     );
 
     const categories = await categoriesCollection
-      .find({ _id: { $in: categoryIds } })
+      .find({ _id: { $in: categoryIds as any } })
       .toArray();
     const brands = await brandsCollection
-      .find({ _id: { $in: brandIds } })
+      .find({ _id: { $in: brandIds as any } })
       .toArray();
 
     const categoryMap = new Map(categories.map(c => [c._id, c.name]));
@@ -176,7 +177,7 @@ export async function getProductsByBrand(
     // Lấy thông tin category
     const categoryIds = [...new Set(products.map(p => p.categoryId))];
     const categories = await categoriesCollection
-      .find({ _id: { $in: categoryIds } })
+      .find({ _id: { $in: categoryIds as any } })
       .toArray();
     const categoryMap = new Map(categories.map(c => [c._id, c.name]));
 
@@ -270,10 +271,10 @@ export async function getProductsByPriceRange(
     );
 
     const categories = await categoriesCollection
-      .find({ _id: { $in: categoryIds } })
+      .find({ _id: { $in: categoryIds as any } })
       .toArray();
     const brands = await brandsCollection
-      .find({ _id: { $in: brandIds } })
+      .find({ _id: { $in: brandIds as any } })
       .toArray();
 
     const categoryMap = new Map(categories.map(c => [c._id, c.name]));
@@ -477,10 +478,10 @@ export async function getProductsWithFilter(
     );
 
     const categories = await categoriesCollection
-      .find({ _id: { $in: categoryIds } })
+      .find({ _id: { $in: categoryIds as any } })
       .toArray();
     const brands = await brandsCollection
-      .find({ _id: { $in: brandIds } })
+      .find({ _id: { $in: brandIds as any } })
       .toArray();
 
     const categoryMap = new Map(categories.map(c => [c._id, c.name]));
@@ -526,13 +527,13 @@ export async function getProductById(id: number): Promise<ProductType | null> {
       product = await productsCollection.findOne({
         _id: new ObjectId(id.toString()),
         isActive: true,
-      });
+      } as any);
     } catch {
       // Nếu không tìm thấy với ObjectId, thử tìm với string
       product = await productsCollection.findOne({
         _id: id.toString(),
         isActive: true,
-      });
+      } as any);
     }
 
     if (!product) {
@@ -548,8 +549,8 @@ export async function getProductById(id: number): Promise<ProductType | null> {
       : new ObjectId(product.brandId);
 
     const [category, brand] = await Promise.all([
-      categoriesCollection.findOne({ _id: categoryId }),
-      brandsCollection.findOne({ _id: brandId }),
+      categoriesCollection.findOne({ _id: categoryId } as any),
+      brandsCollection.findOne({ _id: brandId } as any),
     ]);
 
     return mapProductToType(product, category?.name, brand?.name);
