@@ -60,16 +60,20 @@ export async function connect(): Promise<Db> {
       // Tăng timeout và thêm retry options cho handshake
       const clientOptions = {
         ...mongodbConfig.options,
-        serverSelectionTimeoutMS: 15000, // Tăng timeout lên 15 giây (Vercel serverless needs more time)
-        connectTimeoutMS: 15000,
-        socketTimeoutMS: 60000,
+        serverSelectionTimeoutMS: 30000, // 30 giây timeout cho Vercel
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 90000,
         retryWrites: true,
         retryReads: true,
-        // Xử lý lỗi handshake tốt hơn
-        maxPoolSize: mongodbConfig.options?.maxPoolSize || 5,
-        minPoolSize: mongodbConfig.options?.minPoolSize || 1,
-        // Giữ connection alive lâu hơn trên Vercel
-        maxIdleTimeMS: 60000,
+        // Tăng pool size cho Vercel
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        // Giữ connection alive và cải thiện reuse
+        maxIdleTimeMS: 120000, // 2 minutes
+        // Thêm options để tránh stale connections
+        waitQueueTimeoutMS: 10000,
+        // Server monitoring
+        heartbeatFrequencyMS: 30000,
       };
       
       client = new MongoClient(mongodbConfig.uri, clientOptions);
@@ -176,13 +180,30 @@ export async function getCollection<T extends Document = Document>(
   collectionName: string
 ): Promise<Collection<T>> {
   try {
+    // First, ensure we're connected
     const database = await connect();
+    
+    // Try a ping to verify connection is still alive
+    try {
+      if (client && db) {
+        // Try to run a simple command to check if connection is alive
+        await db.admin().ping();
+      }
+    } catch (pingError: any) {
+      // Ping failed, connection is dead
+      console.warn('⚠️  Ping failed, resetting connection...');
+      await resetConnection();
+      const newDatabase = await connect();
+      return newDatabase.collection<T>(collectionName);
+    }
+    
     return database.collection<T>(collectionName);
   } catch (error: any) {
     // Nếu gặp lỗi "Topology is closed", reset và thử lại
     if (error.message?.includes('Topology is closed') || 
         error.message?.includes('connection closed') ||
-        error.message?.includes('ECONNREFUSED')) {
+        error.message?.includes('ECONNREFUSED') ||
+        error.name === 'MongoTopologyClosedError') {
       console.warn('⚠️  Connection lost, attempting to reconnect...');
       await resetConnection();
       const database = await connect();
@@ -247,12 +268,16 @@ export async function withRetry<T>(
       const isTopologyError = 
         error.name === 'MongoTopologyClosedError' ||
         error.message?.includes('Topology is closed') ||
+        error.message?.includes('topology') ||
         error.message?.includes('connection closed') ||
+        error.message?.includes('connection reset') ||
         error.message?.includes('ECONNREFUSED') ||
-        error.message?.includes('topology');
+        error.message?.includes('ENOTFOUND') ||
+        error.code === 'TOPOLOGY_CLOSED';
 
       if (isTopologyError && i < retries - 1) {
         console.warn(`⚠️  Topology error detected, retrying... (attempt ${i + 1}/${retries})`);
+        console.warn(`   Error: ${error.message}`);
         await resetConnection(); // Reset connection
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
         continue;
